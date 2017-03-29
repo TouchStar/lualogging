@@ -4,6 +4,7 @@
 -- @author Danilo Tuler (tuler@ideais.com.br)
 -- @author Andre Carregal (info@keplerproject.org)
 -- @author Thiago Costa Ponte (thiago@ideais.com.br)
+-- @author David Thornley (thornley.david@touchstargroup.com)
 --
 -- @copyright 2004-2013 Kepler Project
 -------------------------------------------------------------------------------
@@ -21,6 +22,10 @@ local logging = {
 _COPYRIGHT = "Copyright (C) 2004-2013 Kepler Project",
 _DESCRIPTION = "A simple API to use logging features in Lua",
 _VERSION = "LuaLogging 1.3.0",
+
+-- The TRACE Level designates extremely fine-grained instring.formational events that are
+-- useful only when deeply debugging an application
+TRACE = "TRACE",
 
 -- The DEBUG Level designates fine-grained instring.formational events that are most
 -- useful to debug an application
@@ -42,7 +47,7 @@ ERROR = "ERROR",
 FATAL = "FATAL",
 }
 
-local LEVEL = {"DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
+local LEVEL = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 local MAX_LEVELS = #LEVEL
 -- make level names to order
 for i=1,MAX_LEVELS do
@@ -93,6 +98,15 @@ local function assert(exp, ...)
 	error(format(...), 2)
 end
 
+-- default appender applied if not specified
+function logging.defaultappender(self, level, message)
+	print(level, message)
+	return true
+end
+
+-- default log level to use on new loggers
+logging.defaultlevel = logging.DEBUG
+
 -------------------------------------------------------------------------------
 -- Creates a new logger object
 -- @param append Function used by the logger to append a message with a
@@ -100,17 +114,21 @@ end
 -- @return Table representing the new logger object.
 -------------------------------------------------------------------------------
 function logging.new(append)
+	if not append then
+		append = logging.defaultappender
+	end
 	if type(append) ~= "function" then
 		return nil, "Appender must be a function."
 	end
 
 	local logger = {}
 	logger.append = append
+	logger.debuglevelchanges = false		-- Set to true to warn of loglevel changes
 
 	logger.setLevel = function (self, level)
 		local order = LEVEL[level]
 		assert(order, "undefined level `%s'", _tostring(level))
-		if self.level then
+		if logger.debuglevelchanges and self.level then
 			self:log(logging.WARN, "Logger: changing loglevel from %s to %s", self.level, level)
 		end
 		self.level = level
@@ -137,7 +155,7 @@ function logging.new(append)
 	end
 
 	-- initialize log level.
-	logger:setLevel(logging.DEBUG)
+	logger:setLevel(logging.defaultlevel)
 	return logger
 end
 
@@ -179,7 +197,7 @@ local function tostring(value)
 			end
 		end
 		table.sort(auxTable)
-	
+
 		str = str..'{'
 		local separator = ""
 		local entry = ""
